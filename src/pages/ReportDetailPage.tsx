@@ -190,7 +190,8 @@ function ResolutionForm({
   const qc = useQueryClient();
   const toast = useToast();
   const confirm = useConfirm();
-  const targetExists = !!report.target_user;
+  const targetDeleted = report.target_user?.account_status === 'deleted';
+  const targetExists = !!report.target_user && !targetDeleted;
 
   const [status, setStatus] = useState<ReportStatus>(report.status);
   const [notes, setNotes] = useState(report.admin_notes || '');
@@ -320,7 +321,8 @@ function ResolutionForm({
         </select>
         {!targetExists && (
           <div className="text-[11px] text-white/50 mt-1.5">
-            El usuario denunciado ya no existe. Solo puedes cerrar el reporte.
+            {targetDeleted ? 'La cuenta denunciada está eliminada.' : 'El usuario denunciado ya no existe.'}{' '}
+            Solo puedes cerrar el reporte.
           </div>
         )}
       </div>
