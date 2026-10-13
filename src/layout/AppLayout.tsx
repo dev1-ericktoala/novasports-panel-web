@@ -2,12 +2,14 @@ import { NavLink, Outlet, Link } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext';
 import { IconLogout } from '@/ui/Icons';
 import { useReportsQueueCount } from '@/hooks/useReports';
+import { useCoachesPendingCounts } from '@/hooks/useCoaches';
 
 export function AppLayout() {
   const { admin, signOut } = useAuth();
   const queueQ = useReportsQueueCount();
   const queue = queueQ.data?.queue;
   const reportsCount = (queue?.open ?? 0) + (queue?.reviewing ?? 0);
+  const coachesCount = useCoachesPendingCounts().data?.total ?? 0;
   return (
     <div className="min-h-screen flex flex-col">
       <header className="chrome">
@@ -27,8 +29,11 @@ export function AppLayout() {
           <nav className="flex items-center gap-0.5 ml-2">
             <TopNav to="/rankings">Rankings</TopNav>
             <TopNav to="/users">Usuarios</TopNav>
+            <TopNav to="/coaches" badge={coachesCount}>Coaches</TopNav>
             <TopNav to="/links">Vínculos</TopNav>
             <TopNav to="/reports" badge={reportsCount}>Reportes</TopNav>
+            <TopNav to="/storage">Almacenamiento</TopNav>
+            {admin?.is_super_admin && <TopNav to="/admins">Admins</TopNav>}
           </nav>
 
           <div className="ml-auto flex items-center gap-2 text-[12.5px]">
