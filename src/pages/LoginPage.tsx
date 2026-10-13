@@ -20,7 +20,6 @@ export function LoginPage() {
     try {
       await authApi.sendCode(email.trim());
       setStep('code');
-      toast.success('Enviamos un código a tu email');
     } catch (err) {
       toast.error(err);
     } finally { setLoading(false); }
@@ -69,13 +68,14 @@ export function LoginPage() {
               {loading ? 'Enviando…' : 'Enviar código'}
             </button>
             <p className="text-[12px] text-white/45 text-center leading-relaxed">
-              Solo usuarios con rol admin en la base de datos.
+              Solo cuentas de administrador.
             </p>
           </form>
         ) : (
           <form onSubmit={verifyCode} className="space-y-5">
             <div className="text-[12px] text-white/60 leading-relaxed">
-              Enviamos un código a <span className="text-white">{email}</span>.
+              Si <span className="text-white">{email}</span> es de un administrador, te llegará un código.
+              Revisa la bandeja de entrada y el spam.
             </div>
             <div>
               <label className="label">Código de 6 dígitos</label>
