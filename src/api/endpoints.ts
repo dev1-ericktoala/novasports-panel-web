@@ -1,8 +1,10 @@
 import { apiRequest } from './client';
 import type {
   Admin, Entry, LinkedEntry, Meta, RankingSummary, Session, RankingType,
-  UserRow, AccountStatus,
+  UserRow, AccountStatus, AccountStatusChange, PanelAdminRow, StorageCleanupSummary,
   ReportRow, ReportsMeta, ReportStatus, ReportsQueue,
+  CoachTestimonial, TestimonialFilter, CoachCertification, CertificationFilter,
+  CoachesPendingCounts, ImportMode, ImportSummary,
 } from '@/types';
 
 // ---------- auth ----------
@@ -74,6 +76,7 @@ export const rankingsApi = {
 
 // ---------- entries ----------
 export type EntryInput = {
+  unique_id?: string;
   player_name: string;
   ranking_position: number;
   category_position?: number | null;
@@ -91,11 +94,12 @@ export const entriesApi = {
     apiRequest<{ entry: Entry }>(
       `/admin/rankings/${rankingId}/entries`, { method: 'POST', body }
     ),
+  /** Con `preview: true` el backend no escribe nada: devuelve lo que pasaría. */
   importCsv: (
     rankingId: string,
-    body: { csv: string; replace?: boolean }
+    body: { csv: string; mode: ImportMode; preview: boolean }
   ) =>
-    apiRequest<{ imported: number; replaced: number; recalculated_athletes: number }>(
+    apiRequest<ImportSummary>(
       `/admin/rankings/${rankingId}/entries/import-csv`, { method: 'POST', body }
     ),
   patch: (entryId: string, body: Partial<EntryInput>) =>
@@ -126,10 +130,7 @@ export const usersApi = {
     apiRequest<{ users: UserRow[]; total?: number; limit?: number; offset?: number }>(
       '/admin/users', { query: filter as any }
     ),
-  patchAccount: (
-    userId: string,
-    body: { status: AccountStatus; reason?: string; suspended_until?: string }
-  ) =>
+  patchAccount: (userId: string, body: AccountStatusChange) =>
     apiRequest<{ user: UserRow }>(
       `/admin/users/${userId}/account`, { method: 'PATCH', body }
     ),
@@ -145,6 +146,23 @@ export const usersApi = {
       `/admin/users/${userId}/wizard`,
       { method: 'PATCH', body: { granted } }
     ),
+};
+
+// ---------- admins (super admin only) ----------
+export const adminsApi = {
+  list: () => apiRequest<{ admins: PanelAdminRow[] }>('/admin/admins'),
+  patchAccount: (userId: string, body: AccountStatusChange) =>
+    apiRequest<{ admin: PanelAdminRow }>(
+      `/admin/admins/${userId}/account`, { method: 'PATCH', body }
+    ),
+};
+
+// ---------- maintenance ----------
+export const maintenanceApi = {
+  previewStorageCleanup: () =>
+    apiRequest<StorageCleanupSummary>('/admin/maintenance/storage-cleanup'),
+  runStorageCleanup: () =>
+    apiRequest<StorageCleanupSummary>('/admin/maintenance/storage-cleanup', { method: 'POST' }),
 };
 
 // ---------- reports ----------
@@ -176,6 +194,30 @@ export const reportsApi = {
     apiRequest<{ report: ReportRow }>(`/admin/reports/${id}`),
   patch: (id: string, body: PatchReportBody) =>
     apiRequest<{ report: ReportRow }>(`/admin/reports/${id}`, { method: 'PATCH', body }),
+};
+
+// ---------- coaches ----------
+export const coachesApi = {
+  pendingCounts: () =>
+    apiRequest<CoachesPendingCounts>('/admin/coaches/pending-counts'),
+  testimonials: (status: TestimonialFilter) =>
+    apiRequest<{ testimonials: CoachTestimonial[] }>('/admin/coaches/testimonials', {
+      query: { status },
+    }),
+  reviewTestimonial: (id: string, action: 'confirm' | 'reject') =>
+    apiRequest<{ testimonial: CoachTestimonial | null }>(
+      `/admin/coaches/testimonials/${id}/review`,
+      { method: 'POST', body: { action } }
+    ),
+  certifications: (status: CertificationFilter) =>
+    apiRequest<{ certifications: CoachCertification[] }>('/admin/coaches/certifications', {
+      query: { status },
+    }),
+  reviewCertification: (id: string, body: { action: 'approve' | 'reject'; reason?: string }) =>
+    apiRequest<{ certification: CoachCertification | null }>(
+      `/admin/coaches/certifications/${id}/review`,
+      { method: 'POST', body }
+    ),
 };
 
 // ---------- links ----------

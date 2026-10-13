@@ -48,6 +48,8 @@ export type LinkStatus = 'pending' | 'confirmed';
 export type Entry = {
   id: string;
   ranking_id: string;
+  /** ID del jugador en el CSV del cliente. null solo en filas anteriores a la migración 094. */
+  unique_id?: string | null;
   player_name: string;
   country: string | null;
   ranking_position: number | null;
@@ -98,6 +100,16 @@ export type CsvFormat = {
   example_download_path?: string;
 };
 
+export type ImportMode = 'update' | 'replace' | 'append';
+
+export type ImportModeOption = {
+  id: ImportMode;
+  label: string;
+  description: string;
+  default?: boolean;
+  requires_confirmation?: boolean;
+};
+
 export type Meta = {
   ranking_types: MetaOption[];
   age_brackets: MetaOption[];
@@ -110,10 +122,98 @@ export type Meta = {
     { table: OvrRow[]; beyond: string }
   >;
   csv_formats?: Record<string, CsvFormat>;
+  unique_id_rules?: string;
+  import_modes?: ImportModeOption[];
   create_ranking_bodies?: Record<string, RankingCreateSpec>;
 };
 
-export type AccountStatus = 'active' | 'suspended' | 'banned' | 'blocked';
+// ---------- ranking import (preview / apply) ----------
+export type ImportRowError = {
+  code: string;
+  message: string;
+  row?: number;
+  rows?: number[];
+  unique_id?: string;
+};
+
+export type ImportCounts = {
+  csv_rows: number;
+  updated: number;
+  unchanged: number;
+  inserted: number;
+  removed: number;
+  unlinked: number;
+  assigned_by_name: number;
+  ovr_changes: number;
+};
+
+export type ImportSummary = {
+  mode: ImportMode;
+  mode_label: string;
+  preview: boolean;
+  can_apply: boolean;
+  errors: ImportRowError[];
+  counts: ImportCounts;
+  unlinked: {
+    entry_id: string;
+    unique_id: string | null;
+    player_name: string;
+    ranking_position: number | null;
+    athlete_id: string;
+    athlete_name: string | null;
+  }[];
+  renamed_linked: {
+    entry_id: string;
+    unique_id: string;
+    old_name: string;
+    new_name: string;
+    athlete_id: string;
+  }[];
+  ovr_changes: {
+    entry_id: string;
+    unique_id: string;
+    player_name: string;
+    athlete_id: string;
+    old_ranking_position: number | null;
+    new_ranking_position: number | null;
+    old_national_category: string | null;
+    new_national_category: string | null;
+  }[];
+  assigned_by_name: {
+    entry_id: string;
+    unique_id: string;
+    player_name: string;
+    linked: boolean;
+  }[];
+  name_assign_skipped: {
+    row: number;
+    unique_id: string;
+    player_name: string;
+    reason: string;
+    message: string;
+  }[];
+  possible_id_changes: {
+    entry_id: string;
+    old_unique_id: string | null;
+    new_unique_id: string;
+    player_name: string;
+    athlete_id: string;
+  }[];
+  recalculated_athlete_ids: string[];
+  /** Solo al aplicar. */
+  imported?: number;
+  recalculated_athletes?: number;
+};
+
+/** 'deleted' is only set by the account deletion flow; the panel can't choose it. */
+export type AccountStatus = 'active' | 'suspended' | 'banned' | 'blocked' | 'deleted';
+export type SettableAccountStatus = Exclude<AccountStatus, 'deleted'>;
+
+export type AccountStatusChange = {
+  status: SettableAccountStatus;
+  reason?: string;
+  suspended_until?: string;
+};
 
 // ---------- reports ----------
 export type ReportStatus = 'open' | 'reviewing' | 'resolved' | 'dismissed';
@@ -159,15 +259,97 @@ export type UserRow = {
   email: string | null;
   full_name: string | null;
   photo_url: string | null;
-  role: string | null;
+  /** App roles: 'player' | 'coach' | 'club_admin'. Panel admins are not listed. */
+  roles: string[];
   account_status: AccountStatus | null;
   account_status_reason: string | null;
   suspended_until: string | null;
   overall_rating: number | null;
   overall_rating_override: number | null;
   wizard_granted?: boolean;
+  /** Club this account administers, if any. */
+  club_name?: string | null;
+  club_closed_at?: string | null;
   created_at: string | null;
   updated_at: string | null;
+};
+
+// ---------- maintenance ----------
+export type StorageCleanupSummary = {
+  dry_run: boolean;
+  unfinished_deletions: { found: number; fixed: number; blocked_open_club: number; failed: number };
+  auth_leftovers: { found: number; fixed: number; failed: number };
+  orphan_files: { folders: number; files: number; removed: number; failed: number; by_bucket: Record<string, number> };
+  expired_media: { videos: number; photos: number };
+};
+
+// ---------- coaches ----------
+export type CoachSummary = {
+  id: string | null;
+  full_name: string | null;
+  photo_url: string | null;
+  onboarding_completed: boolean;
+  onboarding_step?: number;
+};
+
+export type TestimonialFilter = 'pending' | 'confirmed' | 'all';
+
+export type CoachTestimonial = {
+  id: string;
+  athlete_id: string | null;
+  status: 'pending' | 'accepted' | 'rejected' | null;
+  status_label: string;
+  status_hint: string;
+  requested_at: string | null;
+  responded_at: string | null;
+  admin_verified: boolean;
+  counts_in_legacy: boolean;
+  requires_player_approval: boolean;
+  player_has_app: boolean;
+  athlete: {
+    id: string;
+    full_name: string | null;
+    photo_url: string | null;
+    national_position: number | null;
+    fip_position: number | null;
+    has_id_photo: boolean;
+  } | null;
+  coach: CoachSummary | null;
+};
+
+export type CertificationStatus = 'pending' | 'approved' | 'rejected';
+export type CertificationFilter = CertificationStatus | 'all';
+
+export type ModerationStatus = 'clean' | 'flagged' | 'blocked' | 'skipped';
+
+export type CoachCertification = {
+  id: string;
+  /** Name the coach gave it; shown on their card once approved. */
+  title: string;
+  /** Original file name, for reference only. */
+  file_name: string | null;
+  status: CertificationStatus;
+  status_label: string;
+  created_at: string | null;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  auto_rejected: boolean;
+  image_url: string | null;
+  moderation: {
+    status: ModerationStatus | null;
+    status_label: string;
+    flags: { category: string; category_label: string; likelihood: string; likelihood_label: string }[];
+  };
+  moderation_text: string | null;
+  can_approve: boolean;
+  can_reject: boolean;
+  coach: CoachSummary | null;
+};
+
+export type CoachesPendingCounts = {
+  testimonials: number;
+  certifications: number;
+  total: number;
 };
 
 export type Session = {
@@ -180,4 +362,23 @@ export type Admin = {
   id: string;
   email: string;
   is_admin: boolean;
+  is_super_admin?: boolean;
+};
+
+/** Row of the admins page (super admin only). */
+export type PanelAdminRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  is_super_admin: boolean;
+  is_self: boolean;
+  account_status: AccountStatus;
+  account_status_label: string;
+  account_status_reason: string | null;
+  suspended_until: string | null;
+  created_at: string | null;
+  /** App roles left over from before admins were panel-only accounts. */
+  app_roles: string[];
+  can_change_status: boolean;
+  status_locked_reason: string | null;
 };
