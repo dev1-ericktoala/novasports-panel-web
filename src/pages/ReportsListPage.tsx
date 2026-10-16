@@ -22,6 +22,7 @@ const ACCOUNT_STATUS_STYLES: Record<AccountStatus, string> = {
   suspended: 'text-amber-300',
   banned: 'text-red-300',
   blocked: 'text-white/60',
+  deleted: 'text-white/40',
 };
 
 const TARGET_TYPE_LABEL: Record<string, string> = {

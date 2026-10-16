@@ -28,7 +28,7 @@ El panel no tiene base de datos ni lógica de negocio propia. Es un cliente "ton
 - Node.js 18 o superior (recomendado 20 LTS).
 - npm 9 o superior.
 - Acceso a una instancia de la API de NovaSports (producción en Render o un backend local).
-- Un correo con rol `admin` asignado en la base de datos (ver [Acceso de administradores](#acceso-de-administradores)).
+- Una cuenta de admin creada con el script del backend (ver [Acceso de administradores](#acceso-de-administradores)).
 
 ---
 
@@ -141,7 +141,9 @@ Cuando un jugador se vincula en la app a una entrada de un ranking, su OVR se ca
 **Usuarios.** Los cambios de estado de cuenta tienen efecto inmediato en la app:
 
 - `suspended`: requiere fecha de fin; el usuario no puede usar la app hasta esa fecha.
-- `banned` / `blocked`: cierran la sesión del usuario.
+- `banned` / `blocked`: permanentes hasta que se reactive la cuenta.
+- Suspender, banear o bloquear pide confirmación, cierra la sesión del usuario y deja de enviarle código para entrar.
+- La lista muestra solo jugadores, coaches y clubes (columna "Rol" y filtro por esos tres). Los admins no aparecen aquí.
 - Override de OVR: fija un OVR manual que reemplaza al calculado. Al limpiarlo, el OVR vuelve a calcularse desde sus rankings.
 - Logro "Mago": otorga o quita manualmente el logro especial del mago (varita) en el perfil del usuario.
 
@@ -151,23 +153,24 @@ Cuando un jugador se vincula en la app a una entrada de un ranking, su OVR se ca
 
 ## Acceso de administradores
 
-No existe registro ni lista de correos en variables de entorno. El rol se asigna exclusivamente desde la base de datos (SQL Editor de Supabase):
+No existe registro ni lista de correos en variables de entorno. Los admins son **cuentas solo del panel**: no tienen perfil de jugador, coach ni club y no pueden iniciar sesión en la app. Se crean con el script del backend (desde `backend/`, con `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`):
 
-```sql
-SELECT grant_admin_role('persona@dominio.com');   -- otorgar
-SELECT revoke_admin_role('persona@dominio.com');  -- quitar
+```bash
+npm run admin -- list                           # admins del panel
+npm run admin -- create <correo> [--super]      # crea un admin (--super: super admin)
+npm run admin -- remove-super <correo>          # le quita la marca de super admin
 ```
 
-El usuario debe existir previamente en Supabase Auth.
+El script rechaza correos que ya son cuentas de la app. El **super admin** es el único que ve la sección "Admins" y puede cambiar el estado de los demás admins; el suyo y el de otros super admins solo se cambian con el script o SQL. Detalle en `003 docs panel web.md` del repositorio principal.
 
 ### Flujo de inicio de sesión
 
-1. El administrador escribe su correo. El panel llama a `POST /admin/auth/send-code`. Por seguridad, la respuesta es la misma aunque el correo no sea admin.
-2. Llega un código de 6 dígitos por email. El panel llama a `POST /admin/auth/verify-code` y recibe `{ session, admin }`.
+1. El administrador escribe su correo. El panel llama a `POST /admin/auth/send-code`. Solo se envía código a admins activos. Si el correo es de una cuenta de la app (jugador, coach o club) se muestra "No puedes acceder al panel con esta cuenta.". Si es de un admin no activo o no existe, la respuesta es la misma que la de un admin activo (no se revela quién es admin) y no llega código.
+2. Llega un código de 6 dígitos por email. El panel llama a `POST /admin/auth/verify-code` y recibe `{ session, admin }`. `admin.is_super_admin` decide si se muestra la sección "Admins".
 3. La sesión (`access_token` y `refresh_token`) se guarda en `localStorage` bajo la clave `novasports.session`.
 4. Cada petición envía `Authorization: Bearer <access_token>`.
 5. Si la API responde 401, el cliente intenta refrescar con `POST /admin/auth/refresh` una sola vez y reintenta la petición. Si falla, se cierra la sesión y se vuelve a `/login`.
-6. Si al usuario se le quita el rol admin, el refresh responde 403 y se le saca del panel.
+6. Si al usuario se le quita el rol admin o se suspende, banea o bloquea su cuenta, el refresh responde 401 o 403 y se le saca del panel.
 
 ---
 
@@ -179,7 +182,8 @@ El usuario debe existir previamente en Supabase Auth.
 | `/rankings` | Rankings | Listar, filtrar, crear, activar/desactivar y eliminar rankings. Los formularios se construyen con `GET /admin/rankings/meta`. |
 | `/rankings/:id` | Editor de ranking | Ver, buscar, crear, editar y eliminar entradas. Importar CSV. Recalcular OVR de los atletas vinculados. |
 | `/links` | Vínculos | Cola de auto-vínculos (pendientes, aprobados, todos). Ver foto de verificación, aprobar o desvincular. |
-| `/users` | Usuarios | Buscar usuarios, cambiar estado de cuenta, fijar o limpiar override de OVR, otorgar el logro "Mago". |
+| `/users` | Usuarios | Buscar jugadores, coaches y clubes (filtro por rol), cambiar estado de cuenta, fijar o limpiar override de OVR, otorgar el logro "Mago". |
+| `/admins` | Admins | Solo super admin. Ver los admins del panel y cambiar su estado (no el propio ni el de otro super admin). |
 | `/reports` | Reportes | Cola de reportes de perfiles con contador de pendientes en la barra superior. |
 | `/reports/:id` | Detalle de reporte | Ver denunciante y denunciado, cambiar estado, notas internas y acción sobre la cuenta. |
 
@@ -296,6 +300,13 @@ Todas las rutas son relativas a `VITE_API_BASE_URL`.
 | PATCH | `/admin/users/:userId/ovr` |
 | PATCH | `/admin/users/:userId/wizard` |
 
+### Admins (solo super admin)
+
+| Método | Ruta |
+|--------|------|
+| GET | `/admin/admins` |
+| PATCH | `/admin/admins/:userId/account` |
+
 ### Reportes
 
 | Método | Ruta |
@@ -336,9 +347,11 @@ Ejemplo en Netlify (`public/_redirects`):
 
 ## Problemas comunes
 
-**No llega el código de acceso.** El correo no tiene rol admin (la API responde igual para no revelarlo) o el usuario no existe en Supabase Auth. Revisar con `grant_admin_role`.
+**No llega el código de acceso.** La cuenta del admin no está activa o el correo no existe (la API responde igual que a un admin activo para no revelarlo). Si el correo es de una cuenta de la app, el panel muestra "No puedes acceder al panel con esta cuenta.". Revisar con `npm run admin -- list` en el backend. En local, el código llega a Mailpit (`http://127.0.0.1:54324`), no al buzón real.
 
-**Código válido pero error 403.** El OTP es correcto pero el usuario no tiene rol `admin` en `user_roles`.
+**Código válido pero error 403.** El OTP es correcto pero la cuenta no es admin o no está activa.
+
+**No aparece la sección "Admins".** Solo la ve el super admin. Se marca con `npm run admin -- create <correo> --super`.
 
 **La primera carga tarda mucho.** El backend en Render estaba dormido. Esperar a que despierte y reintentar.
 

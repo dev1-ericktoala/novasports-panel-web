@@ -307,11 +307,31 @@ function columnsFor(columns: EntryColumn[] | undefined, rankingType: string) {
   );
 }
 
-function entryCell(entry: Entry, key: string) {
+function entryCell(entry: Entry, key: string): ReactNode {
   const value = entry[key as keyof Entry];
+  if (key === 'unique_id') {
+    if (!value) {
+      return (
+        <span
+          className="text-amber-300 text-xs"
+          title="Fila anterior a los IDs. Recibe el ID del CSV en la próxima actualización (por nombre) o puedes escribirlo a mano."
+        >
+          Sin ID
+        </span>
+      );
+    }
+    return <code className="font-mono text-xs text-white/85">{String(value)}</code>;
+  }
   if (value == null || value === '') return '—';
   return String(value);
 }
+
+/** Igual que el backend: sin espacios en los extremos y en mayúsculas. */
+function normalizeUniqueId(raw: string) {
+  return raw.trim().toUpperCase();
+}
+
+const UNIQUE_ID_RE = /^[A-Z0-9_-]{1,40}$/;
 
 // ---------- entries table ----------
 function EntriesTable({
@@ -490,7 +510,10 @@ function InlineEditRow({
   saving: boolean;
 }) {
   const meta = useMeta();
+  const confirm = useConfirm();
+  const toast = useToast();
   const showCategory = rankingType === 'national' || columns.some((c) => c.key === 'national_category_label');
+  const [uniqueId, setUniqueId] = useState(entry.unique_id ?? '');
   const [name, setName] = useState(entry.player_name);
   const [pos, setPos] = useState(String(entry.ranking_position ?? ''));
   const [country, setCountry] = useState(entry.country ?? '');
@@ -499,7 +522,7 @@ function InlineEditRow({
   );
   const [nationalCategory, setNationalCategory] = useState(entry.national_category ?? '');
 
-  const save = () => {
+  const save = async () => {
     const p = Number(pos);
     if (!name.trim() || !Number.isFinite(p) || p < 1) return;
     if (showCategory && !nationalCategory) return;
@@ -508,6 +531,32 @@ function InlineEditRow({
       ranking_position: p,
       category_position: categoryPosition.trim() ? Number(categoryPosition) : null,
     };
+    const uid = normalizeUniqueId(uniqueId);
+    if (uid) {
+      if (!UNIQUE_ID_RE.test(uid)) {
+        toast.push('error', 'El ID solo admite letras, números, "-" y "_" (máximo 40 caracteres)');
+        return;
+      }
+      if (uid !== (entry.unique_id ?? '')) {
+        const ok = await confirm({
+          title: 'Cambiar el ID',
+          message: (
+            <>
+              El ID pasa de <code className="font-mono">{entry.unique_id || 'sin ID'}</code> a{' '}
+              <code className="font-mono">{uid}</code>. Cámbialo también en el CSV del cliente:
+              si no coinciden, en la próxima actualización
+              {entry.matched_athlete ? ` ${entry.matched_athlete.full_name} perderá el ranking.` : ' esta fila se borrará.'}
+            </>
+          ),
+          confirmLabel: 'Cambiar ID',
+        });
+        if (!ok) return;
+      }
+      body.unique_id = uid;
+    } else if (entry.unique_id) {
+      toast.push('error', 'El ID es obligatorio');
+      return;
+    }
     if (country) body.country = country;
     if (showCategory) body.national_category = nationalCategory;
     onSave(body);
@@ -517,6 +566,16 @@ function InlineEditRow({
     <tr className="bg-white/[.02]">
       {columns.map((col) => (
         <td key={col.key} className="td">
+          {col.key === 'unique_id' && (
+            <input
+              className="input !py-1 !px-2 w-32 font-mono text-xs uppercase"
+              value={uniqueId}
+              placeholder="NAC-0001"
+              maxLength={40}
+              onChange={(e) => setUniqueId(e.target.value)}
+              aria-label="ID"
+            />
+          )}
           {col.key === 'player_name' && (
             <div className="space-y-1.5 min-w-[180px]">
               <input className="input !py-1 !px-2" value={name} onChange={(e) => setName(e.target.value)} />
@@ -592,15 +651,19 @@ function AddEntryPanel({
   const columns = columnsFor(meta.data?.entry_columns, rankingType);
   const labelOf = (key: string) => columns.find((c) => c.key === key)?.label;
   const showCategory = rankingType === 'national' || columns.some((c) => c.key === 'national_category_label');
+  const [uniqueId, setUniqueId] = useState('');
   const [name, setName] = useState('');
   const [pos, setPos] = useState('');
   const [country, setCountry] = useState('');
   const [categoryPosition, setCategoryPosition] = useState('');
   const [nationalCategory, setNationalCategory] = useState('');
+  const uid = normalizeUniqueId(uniqueId);
+  const uidInvalid = !!uid && !UNIQUE_ID_RE.test(uid);
 
   const create = useMutation({
     mutationFn: () => {
       const body: EntryInput = {
+        unique_id: uid,
         player_name: name.trim(),
         ranking_position: Number(pos),
       };
@@ -618,12 +681,28 @@ function AddEntryPanel({
     onError: (e) => toast.error(e),
   });
 
-  const canSubmit = name.trim() && pos && (!showCategory || nationalCategory);
+  const canSubmit = uid && !uidInvalid && name.trim() && pos && (!showCategory || nationalCategory);
 
   return (
     <div className="card p-4">
       <div className="text-xs uppercase tracking-wider text-white/50 mb-3">Añadir entrada</div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <Field
+          label={labelOf('unique_id') || 'ID'}
+          hint={
+            uidInvalid
+              ? 'Solo letras, números, "-" y "_" (máximo 40 caracteres).'
+              : 'El mismo ID que tiene el jugador en el CSV del cliente.'
+          }
+        >
+          <input
+            className={'input font-mono uppercase ' + (uidInvalid ? 'border-red-400/60' : '')}
+            value={uniqueId}
+            placeholder="NAC-0001"
+            maxLength={40}
+            onChange={(e) => setUniqueId(e.target.value)}
+          />
+        </Field>
         <Field label={labelOf('player_name')}>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} />
         </Field>

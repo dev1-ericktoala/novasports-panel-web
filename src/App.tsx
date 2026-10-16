@@ -7,6 +7,9 @@ import { LinksPage } from '@/pages/LinksPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { ReportsListPage } from '@/pages/ReportsListPage';
 import { ReportDetailPage } from '@/pages/ReportDetailPage';
+import { CoachesPage } from '@/pages/CoachesPage';
+import { StoragePage } from '@/pages/StoragePage';
+import { AdminsPage } from '@/pages/AdminsPage';
 import { AppLayout } from '@/layout/AppLayout';
 import { ConfirmProvider } from '@/ui/Confirm';
 
@@ -14,6 +17,13 @@ function Guard({ children }: { children: React.ReactNode }) {
   const { status } = useAuth();
   if (status === 'loading') return <LoadingScreen />;
   if (status === 'anon') return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+/** Hides the page from regular admins; the backend enforces it anyway. */
+function SuperAdminOnly({ children }: { children: React.ReactNode }) {
+  const { admin } = useAuth();
+  if (!admin?.is_super_admin) return <Navigate to="/rankings" replace />;
   return <>{children}</>;
 }
 
@@ -45,8 +55,11 @@ export default function App() {
               <Route path="/rankings/:id" element={<RankingEditorPage />} />
               <Route path="/links" element={<LinksPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/coaches" element={<CoachesPage />} />
               <Route path="/reports" element={<ReportsListPage />} />
               <Route path="/reports/:id" element={<ReportDetailPage />} />
+              <Route path="/storage" element={<StoragePage />} />
+              <Route path="/admins" element={<SuperAdminOnly><AdminsPage /></SuperAdminOnly>} />
               <Route path="*" element={<Navigate to="/rankings" replace />} />
             </Route>
           </Routes>
