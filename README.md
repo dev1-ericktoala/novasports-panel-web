@@ -129,7 +129,7 @@ NovaSports está compuesto por tres piezas:
 | `fip` | Premier Padel | Ninguno (global) | Paso 4 del onboarding: ranking internacional. |
 | `fip_promises` | FIP Promises | `fip_sub_category` (SUB12, SUB14, SUB16, SUB18) | Paso 4 del onboarding para jugadores de 18 años o menos. |
 
-Cuando un jugador se vincula en la app a una entrada de un ranking, su OVR se calcula a partir de `ranking_position` usando las tablas de referencia que devuelve la API (`ovr_reference`). En rankings nacionales, `national_category` (1ra a 7ma) es solo informativa: se muestra en la app como `display_label`, pero no afecta al OVR.
+Cuando un jugador se vincula en la app a una entrada de un ranking, su OVR se calcula a partir de `ranking_position` usando las tablas de referencia que devuelve la API (`ovr_reference`). En el ranking nacional y en circuitos privados, `national_category` (1ra a 7ma) es solo informativa: se muestra en la app junto al puesto en la categoría, pero no afecta al OVR.
 
 **Auto-vínculos y verificación de identidad.** En la app, el jugador busca su nombre en un ranking y se auto-vincula. Al hacerlo:
 
@@ -193,8 +193,8 @@ En el editor de un ranking se puede pegar o cargar un CSV. El archivo se lee en 
 
 Columnas obligatorias:
 
-- Nacional: `player_name`, `national_category`, `ranking_position`.
-- Premier Padel, FIP Promises y Open del país: `player_name`, `ranking_position`.
+- Nacional y circuitos privados (Open del país): `player_name`, `national_category`, `ranking_position`.
+- Premier Padel y FIP Promises: `player_name`, `ranking_position`.
 
 El propio panel ofrece un botón para descargar un CSV de ejemplo por tipo; el formato exacto lo define la API en `csv_formats` dentro de `/admin/rankings/meta`.
 

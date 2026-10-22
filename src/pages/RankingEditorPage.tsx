@@ -512,7 +512,9 @@ function InlineEditRow({
   const meta = useMeta();
   const confirm = useConfirm();
   const toast = useToast();
-  const showCategory = rankingType === 'national' || columns.some((c) => c.key === 'national_category_label');
+  const categoryColumn = columns.find((c) => c.key === 'national_category_label');
+  const showCategory = rankingType === 'national' || !!categoryColumn;
+  const allowBlankCategory = !!categoryColumn?.allow_blank_edit_types?.includes(rankingType);
   const [uniqueId, setUniqueId] = useState(entry.unique_id ?? '');
   const [name, setName] = useState(entry.player_name);
   const [pos, setPos] = useState(String(entry.ranking_position ?? ''));
@@ -525,7 +527,7 @@ function InlineEditRow({
   const save = async () => {
     const p = Number(pos);
     if (!name.trim() || !Number.isFinite(p) || p < 1) return;
-    if (showCategory && !nationalCategory) return;
+    if (showCategory && !nationalCategory && !allowBlankCategory) return;
     const body: EntryInput = {
       player_name: name.trim(),
       ranking_position: p,

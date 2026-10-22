@@ -86,6 +86,8 @@ export type EntryColumn = {
   label: string;
   hint?: string;
   ranking_types?: string[];
+  /** En estos tipos se puede guardar una fila vieja sin categoría. El alta y el CSV siguen exigiéndola. */
+  allow_blank_edit_types?: string[];
 };
 export type OvrRow = { max_position: number; ovr: number };
 
