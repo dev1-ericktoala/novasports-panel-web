@@ -29,6 +29,7 @@ export function CreateRankingModal({ open, onClose }: Props) {
   const [country, setCountry] = useState('');
   const [ageBracket, setAgeBracket] = useState('');
   const [fipSub, setFipSub] = useState('');
+  const [genderId, setGenderId] = useState('');
   const [isActive, setIsActive] = useState(true);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function CreateRankingModal({ open, onClose }: Props) {
       setCountry('');
       setAgeBracket('');
       setFipSub('');
+      setGenderId('');
       setIsActive(true);
     }
   }, [open, types]);
@@ -82,6 +84,9 @@ export function CreateRankingModal({ open, onClose }: Props) {
       if (!fipSub) return toast.push('error', 'Selecciona SUB');
       body.fip_sub_category = fipSub;
     }
+    if (meta.data?.ranking_genders) {
+      body.gender_id = genderId || null;
+    }
 
     create.mutate(body);
   };
@@ -119,6 +124,18 @@ export function CreateRankingModal({ open, onClose }: Props) {
             onChange={(e) => setDisplayName(e.target.value)}
           />
         </div>
+
+        {!!meta.data?.ranking_genders?.length && (
+          <div>
+            <label className="label">Género (opcional)</label>
+            <select className="input" value={genderId} onChange={(e) => setGenderId(e.target.value)}>
+              <option value="">Sin género</option>
+              {meta.data.ranking_genders.map(g => (
+                <option key={g.id} value={g.id}>{g.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {requiredFields.includes('country') && (
           <div>

@@ -22,6 +22,8 @@ export type RankingSummary = {
   age_bracket: string | null;
   age_bracket_label: string | null;
   fip_sub_category: string | null;
+  gender_id?: string | null;
+  gender_label?: string | null;
   ranking_scope: string | null;
   is_active: boolean;
   created_at: string | null;
@@ -68,6 +70,7 @@ export type Entry = {
 
 export type LinkedEntry = Entry & {
   ranking_display_name: string;
+  ranking_gender_label?: string | null;
   ranking_type: RankingType;
   ranking_type_label: string;
   status?: LinkStatus;
@@ -117,6 +120,7 @@ export type Meta = {
   age_brackets: MetaOption[];
   fip_sub_categories: MetaOption[];
   national_categories: MetaOption[];
+  ranking_genders?: MetaOption[];
   countries: CountryOption[];
   entry_columns?: EntryColumn[];
   ovr_reference: Record<

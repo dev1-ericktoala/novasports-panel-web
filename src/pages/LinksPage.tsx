@@ -200,6 +200,9 @@ export function LinksPage() {
                       <Link to={`/rankings/${l.ranking_id}`} className="hover:text-white transition-colors">
                         {l.ranking_display_name}
                       </Link>
+                      {l.ranking_gender_label && (
+                        <div className="text-[11px] text-white/50">{l.ranking_gender_label}</div>
+                      )}
                       <TypeBadge type={l.ranking_type} label={l.ranking_type_label} />
                     </div>
                   </td>

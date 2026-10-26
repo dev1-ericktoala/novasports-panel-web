@@ -127,6 +127,11 @@ export function RankingEditorPage() {
                       {ranking.fip_sub_category}
                     </span>
                   )}
+                  {ranking.gender_label && (
+                    <span className="badge border border-line bg-white/5 text-white/70">
+                      {ranking.gender_label}
+                    </span>
+                  )}
                   <span className="badge border border-line bg-white/5 text-white/70">
                     {ranking.entry_count ?? 0} entradas
                   </span>
@@ -245,6 +250,7 @@ function HeaderEdit({
   const [country, setCountry] = useState(ranking.country || '');
   const [ageBracket, setAgeBracket] = useState(ranking.age_bracket || '');
   const [fipSub, setFipSub] = useState(ranking.fip_sub_category || '');
+  const [genderId, setGenderId] = useState(ranking.gender_id || '');
 
   return (
     <form
@@ -260,6 +266,7 @@ function HeaderEdit({
           body.country = country;
         }
         if (ranking.ranking_type === 'fip_promises') body.fip_sub_category = fipSub;
+        if (meta.data?.ranking_genders) body.gender_id = genderId || null;
         onSave(body);
       }}
     >
@@ -290,6 +297,15 @@ function HeaderEdit({
           <option value="">SUB…</option>
           {meta.data?.fip_sub_categories.map(a => <option key={a.id} value={a.id}>{a.label}</option>)}
         </select>
+      )}
+      {!!meta.data?.ranking_genders?.length && (
+        <div>
+          <label className="label">Género (opcional)</label>
+          <select className="input" value={genderId} onChange={(e) => setGenderId(e.target.value)}>
+            <option value="">Sin género</option>
+            {meta.data.ranking_genders.map(g => <option key={g.id} value={g.id}>{g.label}</option>)}
+          </select>
+        </div>
       )}
       <div className="flex gap-2">
         <button className="btn-primary"><IconCheck size={14} /> Guardar</button>

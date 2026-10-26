@@ -44,6 +44,7 @@ export type CreateRankingBody = {
   country?: string;
   age_bracket?: string;
   fip_sub_category?: string;
+  gender_id?: string | null;
   is_active?: boolean;
 };
 
@@ -53,6 +54,7 @@ export type PatchRankingBody = Partial<{
   country: string;
   age_bracket: string;
   fip_sub_category: string;
+  gender_id: string | null;
 }>;
 
 export const rankingsApi = {
